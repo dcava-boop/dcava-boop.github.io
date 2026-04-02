@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FraudShield — Market Readiness Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --navy: #0f2545;
+    --blue: #185FA5;
+    --blue-light: #E6F1FB;
+    --blue-mid: #378ADD;
+    --green: #3B6D11;
+    --green-light: #EAF3DE;
+    --amber: #854F0B;
+    --amber-light: #FAEEDA;
+    --red: #A32D2D;
+    --red-light: #FCEBEB;
+    --gray: #5F5E5A;
+    --gray-light: #F5F5F2;
+    --border: rgba(0,0,0,0.10);
+    --text: #1a1a18;
+    --text-2: #5F5E5A;
+    --text-3: #888780;
+    --surface: #ffffff;
+    --surface-2: #f8f8f6;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --navy: #c8d9f0;
+      --blue: #85B7EB;
+      --blue-light: #0c2540;
+      --blue-mid: #378ADD;
+      --green: #97C459;
+      --green-light: #173404;
+      --amber: #EF9F27;
+      --amber-light: #412402;
+      --red: #F09595;
+      --red-light: #501313;
+      --gray: #B4B2A9;
+      --gray-light: #2C2C2A;
+      --border: rgba(255,255,255,0.10);
+      --text: #f0efe8;
+      --text-2: #B4B2A9;
+      --text-3: #888780;
+      --surface: #1e1e1c;
+      --surface-2: #2c2c2a;
+    }
+  }
+
+  html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    color: var(--text);
+    background: var(--surface-2);
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  .page-header {
+    background: var(--navy);
+    padding: 1.5rem 1.25rem 1.25rem;
+  }
+  .page-header h1 {
+    font-size: clamp(1.05rem, 4vw, 1.45rem);
+    font-weight: 700;
+    color: #ffffff;
+    letter-spacing: -0.01em;
+  }
+  .page-header p {
+    font-size: clamp(0.76rem, 2.8vw, 0.85rem);
+    color: rgba(255,255,255,0.6);
+    margin-top: 0.3rem;
+    line-height: 1.4;
+  }
+  .thesis-banner {
+    background: #1B3A6B;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    padding: 0.65rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .thesis-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+  .thesis-pill.primary { background: rgba(55,138,221,0.25); color: #85B7EB; }
+  .thesis-pill.secondary { background: rgba(216,90,48,0.22); color: #F0997B; }
+  .thesis-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .thesis-dot.p { background: #378ADD; }
+  .thesis-dot.s { background: #D85A30; }
+  .thesis-label {
+    font-size: 0.72rem;
+    color: rgba(255,255,255,0.45);
+    margin-left: auto;
+    font-style: italic;
+  }
+
+  .container { max-width: 960px; margin: 0 auto; padding: 1.25rem; }
+
+  .section-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 0.75rem;
+    margin-top: 1.5rem;
+  }
+  .section-label:first-child { margin-top: 0; }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 400px) { .stat-row { grid-template-columns: 1fr 1fr; } }
+  .stat-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.875rem 0.75rem;
+    text-align: center;
+  }
+  .stat-num {
+    font-size: clamp(1rem, 4vw, 1.35rem);
+    font-weight: 700;
+    color: var(--blue-mid);
+    line-height: 1;
+  }
+  .stat-lbl {
+    font-size: 0.67rem;
+    color: var(--text-3);
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+
+  .weights-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    margin-bottom: 1.5rem;
+  }
+  .weight-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+  }
+  .weight-card label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-2);
+    line-height: 1.3;
+    margin-bottom: 0.3rem;
+  }
+  .weight-val {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--blue-mid);
+    display: block;
+    margin-bottom: 0.35rem;
+    line-height: 1;
+  }
+  input[type=range] {
+    width: 100%;
+    accent-color: var(--blue-mid);
+    cursor: pointer;
+  }
+
+  .divider {
+    border: none;
+    border-top: 0.5px solid var(--border);
+    margin: 1.25rem 0;
+  }
+
+  .markets-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 6px;
+    margin-bottom: 0.25rem;
+  }
+  .markets-scroll::-webkit-scrollbar { height: 3px; }
+  .markets-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .markets-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(115px, 1fr));
+    gap: 8px;
+    min-width: 730px;
+  }
+
+  .market-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.8rem 0.65rem;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+  .market-card:hover { border-color: rgba(55,138,221,0.4); }
+  .market-card:active { transform: scale(0.97); }
+  .market-card.selected { border: 2px solid var(--blue-mid); }
+  .market-card.selected-secondary { border: 2px solid #D85A30; }
+
+  .market-card .rank { font-size: 0.66rem; color: var(--text-3); margin-bottom: 3px; }
+  .market-card .mname { font-size: 0.875rem; font-weight: 700; color: var(--text); margin-bottom: 7px; line-height: 1; }
+  .market-card .score-big { font-size: 1.55rem; font-weight: 800; line-height: 1; }
+  .market-card .score-label { font-size: 0.63rem; color: var(--text-3); margin-top: 2px; }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-top: 7px;
+    letter-spacing: 0.02em;
+  }
+  .badge-primary { background: #E6F1FB; color: #0C447C; }
+  .badge-secondary { background: #FAECE7; color: #712B13; }
+  .badge-watch { background: var(--gray-light); color: var(--gray); }
+  @media (prefers-color-scheme: dark) {
+    .badge-primary { background: #0c2540; color: #85B7EB; }
+    .badge-secondary { background: #2a1008; color: #F0997B; }
+    .badge-watch { background: #2C2C2A; color: #B4B2A9; }
+  }
+
+  .bar-list { margin-bottom: 0.5rem; }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 9px;
+  }
+  .bar-name {
+    font-size: 0.78rem;
+    color: var(--text);
+    width: 74px;
+    flex-shrink: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .bar-track {
+    flex: 1;
+    background: var(--gray-light);
+    border-radius: 4px;
+    height: 8px;
+    overflow: hidden;
+    min-width: 0;
+  }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+  .bar-score {
+    font-size: 0.78rem;
+    font-weight: 700;
+    width: 28px;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    font-size: 0.76rem;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 0.5px solid var(--border);
+    background: transparent;
+    color: var(--text-2);
+    cursor: pointer;
+    font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+    transition: all 0.12s;
+  }
+  .tab-btn.active {
+    background: var(--blue-light);
+    color: var(--blue);
+    border-color: transparent;
+    font-weight: 700;
+  }
+  .tab-btn.active.secondary-tab {
+    background: #FAECE7;
+    color: #712B13;
+  }
+  @media (prefers-color-scheme: dark) {
+    .tab-btn.active { background: #0c2540; color: #85B7EB; }
+    .tab-btn.active.secondary-tab { background: #2a1008; color: #F0997B; }
+  }
+
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 1.25rem;
+  }
+  @media (max-width: 560px) { .detail-grid { grid-template-columns: 1fr; } }
+
+  .detail-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.875rem;
+  }
+  .dtitle {
+    font-size: 0.67rem;
+    color: var(--text-3);
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 700;
+  }
+  .dim-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+    border-bottom: 0.5px solid var(--border);
+    gap: 8px;
+  }
+  .dim-row:last-child { border-bottom: none; }
+  .dim-name { font-size: 0.76rem; color: var(--text-2); flex: 1; min-width: 0; line-height: 1.3; }
+  .dim-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+  .dim-bar { width: 48px; height: 4px; background: var(--gray-light); border-radius: 2px; overflow: hidden; }
+  .dim-bar-fill { height: 100%; border-radius: 2px; }
+  .dim-val { font-size: 0.78rem; font-weight: 700; color: var(--text); min-width: 22px; text-align: right; }
+
+  .notes-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.875rem;
+    margin-bottom: 1.25rem;
+  }
+  .note-item { padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+  .note-item:last-child { border-bottom: none; padding-bottom: 0; }
+  .note-dim {
+    font-size: 0.76rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .note-score-pill {
+    font-size: 0.65rem;
+    padding: 1px 7px;
+    border-radius: 10px;
+    font-weight: 700;
+  }
+  .note-text { font-size: 0.76rem; color: var(--text-2); line-height: 1.55; }
+
+  .constraints-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 1.25rem;
+  }
+  @media (max-width: 480px) { .constraints-grid { grid-template-columns: 1fr; } }
+  .constraint-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.75rem;
+  }
+  .constraint-label { font-size: 0.68rem; color: var(--text-3); margin-bottom: 5px; line-height: 1.3; }
+  .constraint-val { font-size: 0.8rem; font-weight: 700; line-height: 1.35; }
+  .cv-pass { color: #3B6D11; }
+  .cv-warn { color: #854F0B; }
+  .cv-fail { color: #A32D2D; }
+  @media (prefers-color-scheme: dark) {
+    .cv-pass { color: #97C459; }
+    .cv-warn { color: #EF9F27; }
+    .cv-fail { color: #F09595; }
+  }
+
+  .insight-box {
+    border-radius: var(--radius);
+    padding: 0.875rem 1rem;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    margin-bottom: 1.5rem;
+  }
+  .insight-box.primary-insight { background: var(--blue-light); color: var(--text); }
+  .insight-box.secondary-insight { background: #FAECE7; color: var(--text); }
+  @media (prefers-color-scheme: dark) {
+    .insight-box.secondary-insight { background: #2a1008; }
+  }
+  .insight-box strong { font-weight: 700; }
+
+  .radar-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 320px;
+    margin: 0 auto;
+  }
+  @media (min-width: 560px) { .radar-wrap { max-width: 380px; } }
+
+  .thesis-explainer {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 1.25rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  @media (max-width: 480px) { .thesis-explainer { grid-template-columns: 1fr; } }
+  .thesis-col {}
+  .thesis-col-head {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .thesis-col-head .tc-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  }
+  .thesis-col-head.p-head { color: var(--blue); }
+  .thesis-col-head.s-head { color: #D85A30; }
+  @media (prefers-color-scheme: dark) {
+    .thesis-col-head.p-head { color: #85B7EB; }
+    .thesis-col-head.s-head { color: #F0997B; }
+  }
+  .thesis-stat { margin-bottom: 6px; }
+  .thesis-stat-num { font-size: 1rem; font-weight: 700; line-height: 1; }
+  .thesis-stat-lbl { font-size: 0.68rem; color: var(--text-3); line-height: 1.3; }
+  .thesis-stat.p .thesis-stat-num { color: var(--blue-mid); }
+  .thesis-stat.s .thesis-stat-num { color: #D85A30; }
+  @media (prefers-color-scheme: dark) { .thesis-stat.s .thesis-stat-num { color: #F0997B; } }
+  .thesis-why {
+    font-size: 0.73rem;
+    color: var(--text-2);
+    line-height: 1.55;
+    margin-top: 8px;
+    border-top: 0.5px solid var(--border);
+    padding-top: 8px;
+  }
+
+  .page-footer {
+    text-align: center;
+    padding: 1.5rem 1.25rem;
+    font-size: 0.7rem;
+    color: var(--text-3);
+    border-top: 0.5px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>FraudShield — Market Readiness Dashboard</h1>
+  <p>Adjust dimension weights to stress-test the recommendation. Tap any market card for a deep-dive.</p>
+</div>
+
+<div class="thesis-banner">
+  <div class="thesis-pill primary">
+    <div class="thesis-dot p"></div>
+    UK — Primary market
+  </div>
+  <div class="thesis-pill secondary">
+    <div class="thesis-dot s"></div>
+    Brazil — Secondary market
+  </div>
+  <span class="thesis-label">Our recommendation</span>
+</div>
+
+<div class="container">
+
+  <div class="section-label">The thesis at a glance</div>
+  <div class="thesis-explainer">
+    <div class="thesis-col">
+      <div class="thesis-col-head p-head">
+        <span class="tc-dot" style="background:#378ADD"></span>
+        UK — enter now
+      </div>
+      <div class="thesis-stat p">
+        <div class="thesis-stat-num">14 months</div>
+        <div class="thesis-stat-lbl">to first revenue</div>
+      </div>
+      <div class="thesis-stat p">
+        <div class="thesis-stat-num">£450M</div>
+        <div class="thesis-stat-lbl">annual APP fraud losses (mandatory reimbursement active Oct 2024)</div>
+      </div>
+      <div class="thesis-stat p">
+        <div class="thesis-stat-num">Featurespace → Visa</div>
+        <div class="thesis-stat-lbl">Top domestic AI fraud vendor acquired Dec 2024 — independent vendor vacuum open</div>
+      </div>
+      <div class="thesis-why">Regulatory mandate creates forced demand. The competitor vacuum is open. English language, common law, API-native infrastructure ready to receive FraudShield today.</div>
+    </div>
+    <div class="thesis-col">
+      <div class="thesis-col-head s-head">
+        <span class="tc-dot" style="background:#D85A30"></span>
+        Brazil — enter Year 2
+      </div>
+      <div class="thesis-stat s">
+        <div class="thesis-stat-num">15.6%</div>
+        <div class="thesis-stat-lbl">fraud loss rate — highest of all 7 markets</div>
+      </div>
+      <div class="thesis-stat s">
+        <div class="thesis-stat-num">18% CAGR</div>
+        <div class="thesis-stat-lbl">digital payments growth — 2nd fastest globally</div>
+      </div>
+      <div class="thesis-stat s">
+        <div class="thesis-stat-num">PIX network</div>
+        <div class="thesis-stat-lbl">200M+ users, launched 2020 — legacy fraud infrastructure far behind</div>
+      </div>
+      <div class="thesis-why">Brazil has the most pain of any market. The constraint is execution complexity — language, LGPD data law, BACEN regulation. Enter after UK proves the playbook and funds the Brazil setup.</div>
+    </div>
+  </div>
+
+  <div class="section-label">Dimension weights — drag to adjust</div>
+  <div class="weights-grid" id="weightsGrid"></div>
+
+  <hr class="divider">
+
+  <div class="section-label">Market rankings — composite score</div>
+  <div class="markets-scroll">
+    <div class="markets-grid" id="marketsGrid"></div>
+  </div>
+
+  <div class="bar-list" id="barList" style="margin-top:1rem"></div>
+
+  <hr class="divider">
+
+  <div class="section-label" id="detailLabel">Selected market — deep dive</div>
+  <div class="tabs" id="tabRow"></div>
+  <div id="detailPanel"></div>
+
+  <hr class="divider">
+
+  <div class="section-label">18-month feasibility check</div>
+  <div class="constraints-grid" id="constraintsGrid"></div>
+  <div class="insight-box primary-insight" id="insightBox"></div>
+
+</div>
+
+<div class="page-footer">FraudShield International Expansion · MUSE × GRC × McKinsey Case Competition · March 2026</div>
+
+<script>
+const DIMS = [
+  { key:'reg',    label:'Regulatory urgency', weight:30 },
+  { key:'fraud',  label:'Fraud severity',     weight:25 },
+  { key:'gap',    label:'Legacy system gap',  weight:20 },
+  { key:'entry',  label:'Entry feasibility',  weight:15 },
+  { key:'growth', label:'Market growth',      weight:10 },
+];
+
+const MARKETS = [
+  {
+    id: 'uk', name: 'UK',
+    scores: { reg:95, fraud:72, gap:80, entry:92, growth:55 },
+    constraints: { timeline:14, budget:8, data:'pass' },
+    rec: 'primary',
+    notes: {
+      reg: 'PSR APP reimbursement mandate live since Oct 7, 2024 — first of its kind globally. £450M APP fraud in 2024. 61-percentage-point gap between best and worst reimbursing banks before mandate forced unification.',
+      fraud: '8.8% fraud loss rate. £722M total fraud losses 2024 (UK Finance). 3.13M confirmed unauthorised fraud cases — up 14% YoY.',
+      gap: 'Featurespace — the UK\'s leading independent AI fraud vendor — acquired by Visa in Dec 2024. No top-tier independent option remains. Rule-based legacy systems still dominate mid-market banks.',
+      entry: 'English language, common law, zero legal or language barrier for a US team. AWS UK South handles data residency. Familiar procurement process — 90-day deals achievable.',
+      growth: '$11.7B digital payments market (2025) at 15.2% CAGR. Mature but regulatory-driven urgency replaces organic growth as the demand signal.'
+    }
+  },
+  {
+    id: 'brazil', name: 'Brazil',
+    scores: { reg:62, fraud:98, gap:88, entry:42, growth:88 },
+    constraints: { timeline:22, budget:16, data:'warn' },
+    rec: 'secondary',
+    notes: {
+      reg: 'BACEN regulations improving but enforcement inconsistent. LGPD data law (Brazil\'s GDPR equivalent) adds a 4–6 month compliance layer. No mandatory reimbursement regime like UK\'s PSR — yet.',
+      fraud: '15.6% fraud loss rate — highest of all 7 markets by a wide margin. PIX real-time payment network (200M+ users, launched 2020) created a massive fraud surface that legacy rule-based systems cannot handle.',
+      gap: 'PIX transactions exploded from zero to billions in 3 years. Fraud infrastructure investment lagged by design — banks prioritised adoption speed over security. Enormous unmet need for AI-native detection.',
+      entry: 'Portuguese language barrier for US sales team. High political and economic volatility. Complex tax structure. Estimated 22 months to first revenue — exceeds 18-month window without parallel setup.',
+      growth: '18% CAGR — second fastest of all 7 markets. 218M population, rapidly growing middle class, mobile-first banking adoption accelerating. Long-term TAM second only to India.'
+    }
+  },
+  {
+    id: 'india', name: 'India',
+    scores: { reg:78, fraud:82, gap:90, entry:55, growth:98 },
+    constraints: { timeline:20, budget:12, data:'warn' },
+    rec: 'watch',
+    notes: {
+      reg: 'RBI 14C guidelines mandate AI-based fraud detection at banks. MuleHunter.AI pilot active. Enforcement is tightening rapidly.',
+      fraud: 'UPI fraud up 85% in FY24. 2.27M cybercrime complaints in 2024. 10.5% fraud loss rate. 185.8B UPI transactions in FY25.',
+      gap: 'Most banks still on rule-based systems. NPCI provides basic ML alerts — far insufficient for 714M+ daily UPI transactions.',
+      entry: 'RBI data localization is a hard constraint — requires AWS Mumbai deployment. 6–9 months of regulatory setup. Needs a local systems integrator (e.g. Mphasis) to navigate procurement.',
+      growth: '22% CAGR — fastest of all 7 markets. Largest real-time payments network globally. Strongest long-term growth story but slower entry than UK or Brazil.'
+    }
+  },
+  {
+    id: 'aus', name: 'Australia',
+    scores: { reg:82, fraud:32, gap:72, entry:88, growth:62 },
+    constraints: { timeline:12, budget:7, data:'pass' },
+    rec: 'watch',
+    notes: {
+      reg: 'Scams Prevention Framework passed 2025 — mirrors UK PSR model. Banks face mandatory scam reimbursement for first time.',
+      fraud: '3.9% fraud loss rate — low absolute losses, but new regulation creates the same urgency dynamic the UK had pre-Oct 2024.',
+      gap: 'English-speaking, common law. Very familiar to US firms. Low incumbent competition. Fast procurement cycles.',
+      entry: 'Small market (27M population) but high per-capita digital spend. UK playbook deploys unchanged. 12-month path to revenue — fastest of all markets.',
+      growth: '~12% CAGR. Best insurance option if Brazil setup takes longer than expected. Could be Year 2 if Brazil regulatory complexity grows.'
+    }
+  },
+  {
+    id: 'sg', name: 'Singapore',
+    scores: { reg:85, fraud:35, gap:68, entry:90, growth:70 },
+    constraints: { timeline:10, budget:6, data:'pass' },
+    rec: 'watch',
+    notes: {
+      reg: 'MAS is the most fintech-forward regulator of all 7 markets. Actively pushing AI adoption. Fastest licensing in the region.',
+      fraud: '4.3% fraud loss rate. Low absolute losses but MAS pressure creates a clear forward demand signal.',
+      gap: '82% digital payment penetration. Sophisticated, API-native market. Familiar with US B2B SaaS products.',
+      entry: 'English-speaking. Common law. Fastest procurement of all 7 markets. 10-month path to first revenue.',
+      growth: 'Small population (6M) limits Year 1 ARR. Best framed as a regional gateway — Singapore presence unlocks SE Asia conversations.'
+    }
+  },
+  {
+    id: 'germany', name: 'Germany',
+    scores: { reg:72, fraud:42, gap:55, entry:65, growth:48 },
+    constraints: { timeline:18, budget:14, data:'warn' },
+    rec: null,
+    notes: {
+      reg: 'Strong EU framework (PSD2, DORA). GDPR + CNIL dual compliance layer. German banks are conservative, slow-moving buyers.',
+      fraud: '5.1% fraud loss rate. Lower than UK and Brazil — reduces urgency. Regulatory pressure present but not acute or time-bound.',
+      gap: 'German banks heavily invested in SAP and incumbent vendors with deep legacy relationships — extremely hard to displace.',
+      entry: 'German enterprise procurement averages 18–24 months. Relationship-driven. Cultural and institutional preference for domestic or EU vendors.',
+      growth: 'Mature market at 7–8% CAGR. Large absolute size but poorly aligned to FraudShield\'s 18-month entry window.'
+    }
+  },
+  {
+    id: 'france', name: 'France',
+    scores: { reg:68, fraud:48, gap:58, entry:55, growth:50 },
+    constraints: { timeline:20, budget:15, data:'warn' },
+    rec: null,
+    notes: {
+      reg: 'PSD2 compliance required. French CNIL data regulator is among the strictest in Europe. PSD3 coming but not yet law.',
+      fraud: 'Mid-range fraud losses. EU-wide pressure building but France significantly lags UK and Brazil in regulatory urgency.',
+      gap: 'French banks strongly prefer domestic or EU vendors. Cultural and commercial barriers to US fintech SaaS are high.',
+      entry: 'French language barrier for sales. 20+ month procurement cycle. Not aligned to FraudShield\'s 18-month execution window.',
+      growth: 'Stable mature market. No differentiated near-term opportunity.'
+    }
+  }
+];
+
+let weights = { reg:30, fraud:25, gap:20, entry:15, growth:10 };
+let selectedId = 'uk';
+let activeTab = 'scores';
+let radarChart = null;
+
+function score(m) {
+  return Math.round(
+    m.scores.reg   * weights.reg   / 100 +
+    m.scores.fraud * weights.fraud / 100 +
+    m.scores.gap   * weights.gap   / 100 +
+    m.scores.entry * weights.entry / 100 +
+    m.scores.growth* weights.growth/ 100
+  );
+}
+
+function ranked() { return [...MARKETS].sort((a,b) => score(b) - score(a)); }
+
+function scoreColor(s) {
+  if (s >= 75) return '#185FA5';
+  if (s >= 60) return '#3B6D11';
+  if (s >= 45) return '#BA7517';
+  return '#888780';
+}
+function barFill(m) {
+  if (m.rec === 'primary')   return '#378ADD';
+  if (m.rec === 'secondary') return '#D85A30';
+  const s = score(m);
+  if (s >= 75) return '#378ADD';
+  if (s >= 60) return '#639922';
+  if (s >= 45) return '#EF9F27';
+  return '#B4B2A9';
+}
+function dimBarColor(v) {
+  if (v >= 75) return '#378ADD';
+  if (v >= 55) return '#639922';
+  if (v >= 40) return '#EF9F27';
+  return '#B4B2A9';
+}
+
+function buildWeights() {
+  const el = document.getElementById('weightsGrid');
+  el.innerHTML = '';
+  DIMS.forEach(d => {
+    const c = document.createElement('div');
+    c.className = 'weight-card';
+    c.innerHTML =
+      `<label>${d.label}</label>` +
+      `<span class="weight-val" id="wv-${d.key}">${weights[d.key]}%</span>` +
+      `<input type="range" min="0" max="50" step="1" value="${weights[d.key]}" id="ws-${d.key}">`;
+    el.appendChild(c);
+    c.querySelector('input').addEventListener('input', function() {
+      weights[d.key] = parseInt(this.value);
+      document.getElementById('wv-' + d.key).textContent = weights[d.key] + '%';
+      renderAll();
+    });
+  });
+}
+
+function buildMarkets() {
+  const r = ranked();
+  const el = document.getElementById('marketsGrid');
+  el.innerHTML = '';
+  r.forEach((m, i) => {
+    const s = score(m);
+    const c = document.createElement('div');
+    let cls = 'market-card';
+    if (m.id === selectedId) {
+      cls += m.rec === 'secondary' ? ' selected-secondary' : ' selected';
+    }
+    c.className = cls;
+    c.dataset.id = m.id;
+    let badge = '';
+    if (m.rec === 'primary')   badge = '<div class="badge badge-primary">Primary</div>';
+    else if (m.rec === 'secondary') badge = '<div class="badge badge-secondary">Secondary</div>';
+    else if (m.rec === 'watch') badge = '<div class="badge badge-watch">Watch</div>';
+    c.innerHTML =
+      `<div class="rank">#${i+1}</div>` +
+      `<div class="mname">${m.name}</div>` +
+      `<div class="score-big" style="color:${scoreColor(s)}">${s}</div>` +
+      `<div class="score-label">score</div>` +
+      badge;
+    c.addEventListener('click', () => { selectedId = m.id; renderAll(); });
+    el.appendChild(c);
+  });
+}
+
+function buildBars() {
+  const r = ranked();
+  const el = document.getElementById('barList');
+  el.innerHTML = '';
+  r.forEach(m => {
+    const s = score(m);
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    let nameStyle = '';
+    if (m.rec === 'primary')   nameStyle = 'font-weight:700;color:var(--blue-mid)';
+    if (m.rec === 'secondary') nameStyle = 'font-weight:700;color:#D85A30';
+    row.innerHTML =
+      `<div class="bar-name" style="${nameStyle}">${m.name}</div>` +
+      `<div class="bar-track"><div class="bar-fill" style="width:${s}%;background:${barFill(m)}"></div></div>` +
+      `<div class="bar-score" style="color:${scoreColor(s)}">${s}</div>`;
+    el.appendChild(row);
+  });
+}
+
+function buildTabs() {
+  const m = MARKETS.find(x => x.id === selectedId);
+  const isSecondary = m && m.rec === 'secondary';
+  const el = document.getElementById('tabRow');
+  el.innerHTML = '';
+  const labels = { scores: 'Dimension scores', notes: 'Evidence & rationale', radar: 'Radar chart' };
+  Object.keys(labels).forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'tab-btn' + (activeTab === t ? ' active' + (isSecondary ? ' secondary-tab' : '') : '');
+    b.textContent = labels[t];
+    b.onclick = () => {
+      activeTab = t;
+      if (radarChart && t !== 'radar') { radarChart.destroy(); radarChart = null; }
+      buildDetail(); buildTabs();
+    };
+    el.appendChild(b);
+  });
+}
+
+function buildDetail() {
+  const m = MARKETS.find(x => x.id === selectedId);
+  if (!m) return;
+  const accentColor = m.rec === 'secondary' ? '#D85A30' : '#378ADD';
+  document.getElementById('detailLabel').textContent = m.name + ' — deep dive';
+  const el = document.getElementById('detailPanel');
+
+  if (activeTab === 'scores') {
+    const grid = document.createElement('div');
+    grid.className = 'detail-grid';
+
+    const c1 = document.createElement('div'); c1.className = 'detail-card';
+    c1.innerHTML = `<div class="dtitle">Raw dimension scores</div>` +
+      DIMS.map(d =>
+        `<div class="dim-row">` +
+        `<span class="dim-name">${d.label}</span>` +
+        `<div class="dim-right">` +
+        `<div class="dim-bar"><div class="dim-bar-fill" style="width:${m.scores[d.key]}%;background:${dimBarColor(m.scores[d.key])}"></div></div>` +
+        `<span class="dim-val">${m.scores[d.key]}</span>` +
+        `</div></div>`
+      ).join('');
+
+    const c2 = document.createElement('div'); c2.className = 'detail-card';
+    c2.innerHTML = `<div class="dtitle">Weighted contribution</div>` +
+      DIMS.map(d => {
+        const contrib = Math.round(m.scores[d.key] * weights[d.key] / 100);
+        return `<div class="dim-row">` +
+          `<span class="dim-name">${d.label} ×${weights[d.key]}%</span>` +
+          `<div class="dim-right">` +
+          `<div class="dim-bar"><div class="dim-bar-fill" style="width:${contrib}%;background:${accentColor}"></div></div>` +
+          `<span class="dim-val">${contrib}</span>` +
+          `</div></div>`;
+      }).join('');
+
+    grid.appendChild(c1); grid.appendChild(c2);
+    el.innerHTML = ''; el.appendChild(grid);
+
+  } else if (activeTab === 'notes') {
+    const card = document.createElement('div'); card.className = 'notes-card';
+    card.innerHTML = DIMS.map(d => {
+      const v = m.scores[d.key];
+      const pillBg = v >= 75 ? '#E6F1FB' : v >= 55 ? '#EAF3DE' : v >= 40 ? '#FAEEDA' : '#F5F5F2';
+      const pillColor = v >= 75 ? '#0C447C' : v >= 55 ? '#27500A' : v >= 40 ? '#633806' : '#444441';
+      return `<div class="note-item">` +
+        `<div class="note-dim">` +
+        `${d.label}` +
+        `<span class="note-score-pill" style="background:${pillBg};color:${pillColor}">${v}/100</span>` +
+        `</div>` +
+        `<div class="note-text">${m.notes[d.key]}</div>` +
+        `</div>`;
+    }).join('');
+    el.innerHTML = ''; el.appendChild(card);
+
+  } else if (activeTab === 'radar') {
+    const wrap = document.createElement('div'); wrap.className = 'radar-wrap';
+    const canvas = document.createElement('canvas'); canvas.id = 'radarCanvas';
+    wrap.appendChild(canvas);
+    el.innerHTML = ''; el.appendChild(wrap);
+    setTimeout(() => {
+      const ctx = document.getElementById('radarCanvas');
+      if (!ctx) return;
+      if (radarChart) { radarChart.destroy(); radarChart = null; }
+      const isDark = matchMedia('(prefers-color-scheme:dark)').matches;
+      const borderC = m.rec === 'secondary' ? '#D85A30' : '#378ADD';
+      const fillC   = m.rec === 'secondary' ? 'rgba(216,90,48,0.12)' : 'rgba(55,138,221,0.12)';
+      radarChart = new Chart(ctx, {
+        type: 'radar',
+        data: {
+          labels: DIMS.map(d => d.label),
+          datasets: [{
+            label: m.name,
+            data: DIMS.map(d => m.scores[d.key]),
+            borderColor: borderC,
+            backgroundColor: fillC,
+            pointBackgroundColor: borderC,
+            pointRadius: 4,
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: true,
+          scales: { r: {
+            min: 0, max: 100,
+            ticks: { stepSize: 25, font: { size: 9 }, color: '#888780' },
+            grid: { color: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)' },
+            pointLabels: { font: { size: 10 }, color: isDark ? '#B4B2A9' : '#5F5E5A' }
+          }},
+          plugins: { legend: { display: false } }
+        }
+      });
+    }, 60);
+  }
+}
+
+function buildConstraints() {
+  const m = MARKETS.find(x => x.id === selectedId);
+  if (!m) return;
+  const tOk  = m.constraints.timeline <= 18;
+  const bOk  = m.constraints.budget <= 12;
+  const dMap = { pass: 'Data residency: clear', warn: 'Requires local infra', fail: 'Blocked' };
+  const dCls = m.constraints.data === 'pass' ? 'cv-pass' : m.constraints.data === 'warn' ? 'cv-warn' : 'cv-fail';
+  document.getElementById('constraintsGrid').innerHTML =
+    `<div class="constraint-card">` +
+    `<div class="constraint-label">Months to first revenue</div>` +
+    `<div class="constraint-val ${tOk ? 'cv-pass' : 'cv-fail'}">${m.constraints.timeline}mo — ${tOk ? 'Within 18mo window' : 'Exceeds 18mo limit'}</div>` +
+    `</div>` +
+    `<div class="constraint-card">` +
+    `<div class="constraint-label">Infrastructure cost estimate</div>` +
+    `<div class="constraint-val ${bOk ? 'cv-pass' : 'cv-warn'}">~$${m.constraints.budget}M — ${bOk ? 'Within budget' : 'High — warrants phased approach'}</div>` +
+    `</div>` +
+    `<div class="constraint-card">` +
+    `<div class="constraint-label">Data residency compliance</div>` +
+    `<div class="constraint-val ${dCls}">${dMap[m.constraints.data]}</div>` +
+    `</div>`;
+}
+
+function buildInsight() {
+  const m = MARKETS.find(x => x.id === selectedId);
+  const r = ranked();
+  const top = r[0];
+  const s = score(m);
+  const ts = score(top);
+  const dom = DIMS.slice().sort((a,b) =>
+    (m.scores[b.key] * weights[b.key]) - (m.scores[a.key] * weights[a.key])
+  )[0];
+
+  let txt = '';
+  if (m.id === top.id) {
+    txt = `<strong>${m.name}</strong> leads with a composite score of <strong>${s}</strong> under current weights. `;
+  } else {
+    txt = `<strong>${top.name}</strong> currently leads at ${ts}. <strong>${m.name}</strong> scores ${s}. `;
+  }
+  txt += `${m.name}'s strongest dimension is <strong>${dom.label}</strong> (${m.scores[dom.key]}/100). `;
+  if (m.constraints.timeline > 18) {
+    txt += `The estimated ${m.constraints.timeline}-month path to first revenue <strong>exceeds the 18-month constraint</strong>. In our thesis, Brazil enters in Year 2 — after UK revenue funds the setup and proves the international playbook.`;
+  } else {
+    txt += `Estimated ${m.constraints.timeline} months to first revenue fits within the 18-month window.`;
+  }
+
+  const box = document.getElementById('insightBox');
+  box.innerHTML = txt;
+  box.className = 'insight-box ' + (m.rec === 'secondary' ? 'secondary-insight' : 'primary-insight');
+}
+
+function renderAll() {
+  buildMarkets();
+  buildBars();
+  buildTabs();
+  buildDetail();
+  buildConstraints();
+  buildInsight();
+}
+
+buildWeights();
+renderAll();
+</script>
+</body>
+</html>
